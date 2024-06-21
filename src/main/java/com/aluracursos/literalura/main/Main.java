@@ -1,8 +1,6 @@
 package com.aluracursos.literalura.main;
 
-import com.aluracursos.literalura.models.Author;
-import com.aluracursos.literalura.models.DatosLibro;
-import com.aluracursos.literalura.models.Libro;
+import com.aluracursos.literalura.models.*;
 import com.aluracursos.literalura.repository.AuthorRepository;
 import com.aluracursos.literalura.repository.LibroRepository;
 import com.aluracursos.literalura.services.ConvierteDatos;
@@ -11,7 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 
 public class Main {
     private RequestAPI requestAPI = new RequestAPI();
@@ -28,25 +28,27 @@ public class Main {
         this.authorRepository = authorRepository;
     }
 
-    // Mostrar el menu en consola
+
     public void showMenu()
     {
         var opcion = -1;
         while (opcion != 0){
             var menu ="""
                     **************************************************
-                        LiterAlura - Busqueda de Libros y Autores
+                        LiterAlura - Búsqueda de Libros y Autores
                     **************************************************
                     
-                    Selecciona una opcion acontinuacion: 
+                    Selecciona una opción acontinuacion: 
                     
                     1 - Buscar un libro
                     2 - Consultar libros buscados
                     3 - Consultar autores
-                    4 - Consultar autores de un año especifico
+                    4 - Consultar autores de un año específico
                     5 - Consultar libros por lenguaje
                      
-                    0 - Salir               
+                    0 - Salir
+                    
+                    ***************************************************               
                     """;
 
             try {
@@ -55,7 +57,7 @@ public class Main {
                 scanner.nextLine();
             }catch (Exception e){
 
-                System.out.println("Ingresa una opcion valida");
+                System.out.println("Ingrese una opción válida");
             }
 
             switch (opcion){
@@ -78,12 +80,12 @@ public class Main {
                     System.out.println("Hasta luego");
                     break;
                 default:
-                    System.out.println("Ingresa una opcion valida");
+                    System.out.println("Ingrese una opción valida (0-5)");
             }
         }
     }
 
-    // Extrae los datos de un libro
+
     private DatosLibro getDatosLibro() {
         System.out.println("Ingrese el nombre del libro");
         var busqueda = scanner.nextLine().toLowerCase().replace(" ","%20");
@@ -93,53 +95,71 @@ public class Main {
         return datosLibro;
     }
 
-    // Busca un libro y guarda infromacion en la BD en sus tablas correspondientes
+
     private void buscarLibro()
     {
         DatosLibro datosLibro = getDatosLibro();
 
         try {
-            Libro libro = new Libro(datosLibro.resultados().get(0));
-            Author author = new Author(datosLibro.resultados().get(0).autorList().get(0));
+            DatosResultados datosResultados = datosLibro.resultados().get(0);
+            Libro libro = new Libro(datosResultados);
+
+
+            for (DatosAutor datosAutor : datosResultados.autorList()) {
+                Author author = new Author(datosAutor);
+
+
+                Optional<Author> existingAuthor = authorRepository.findByName(author.getAutor());
+
+                if (existingAuthor.isPresent()) {
+                    author = existingAuthor.get();
+                } else {
+                    author = authorRepository.save(author);
+                }
+
+                libro.addAutor(author);
+            }
 
             System.out.println("""
                     libro[
                         titulo: %s
-                        author: %s
+                        autor: %s
                         lenguaje: %s
                         descargas: %s
                     ]
                     """.formatted(libro.getTitulo(),
-                    libro.getAutor(),
+                    libro.getAutores().stream().map(Author::getAutor).collect(Collectors.joining(", ")),
                     libro.getLenguaje(),
                     libro.getDescargas().toString()));
 
+
             libroRepository.save(libro);
-            authorRepository.save(author);
+
 
         }catch (Exception e){
-            System.out.println("no se encontro ese libro");
+            System.out.println("No se encuentra ese libro");
+            e.printStackTrace();
         }
 
     }
 
-    // Trae los libros guardados en la BD
+
     private void consultarLibros() {
         libros = libroRepository.findAll();
         libros.stream().forEach(l -> {
-            System.out.println("""    
-                        Titulo: %s
-                        Author: %s
-                        Lenguaje: %s
-                        Descargas: %s
-                    """.formatted(l.getTitulo(),
-                    l.getAutor(),
-                    l.getLenguaje(),
-                    l.getDescargas().toString()));
+            System.out.printf("""
+                                Titulo: %s
+                                Autor: %s
+                                Lenguaje: %s
+                                Descargas: %s
+                            %n""", l.getTitulo(),
+            l.getAutores(),
+            l.getLenguaje(),
+            l.getDescargas().toString());
         });
     }
 
-    // Trae todos los autores de los libros consultados en la BD
+
     private void consultarAutores() {
         autores = authorRepository.findAll();
         autores.stream().forEach(a -> {
@@ -153,10 +173,10 @@ public class Main {
         });
     }
 
-    // Trae a los autores apartir de cierto año
+
     public void consultarAutoresPorAno()
     {
-        System.out.println("Ingresa el año a partir del cual buscar:");
+        System.out.println("Ingrese el año a partir del cual buscar:");
         var anoBusqueda = scanner.nextInt();
         scanner.nextLine();
 
@@ -175,10 +195,12 @@ public class Main {
     {
         System.out.println("""
                 ****************************************************************    
-                    Selcciona el lenguaje de los libros que deseas consultar
+                    Selccione el lenguaje de los libros que deseas consultar
                 ****************************************************************
-                1 - En (Ingles)
+                1 - En (Inglés)
                 2 - Es (Español)
+                
+                *****************************************************************
                 """);
 
         try {
@@ -195,23 +217,23 @@ public class Main {
                     break;
 
                 default:
-                    System.out.println("Ingresa una opcion valida");
+                    System.out.println("Ingrese una opción valida");
             }
 
             libros.stream().forEach(l -> {
                 System.out.println("""    
-                        Titulo: %s
-                        Author: %s
+                        Título: %s
+                        Autor: %s
                         Lenguaje: %s
                         Descargas: %s
                     """.formatted(l.getTitulo(),
-                        l.getAutor(),
+                        l.getAutores(),
                         l.getLenguaje(),
                         l.getDescargas().toString()));
             });
 
         } catch (Exception e){
-            System.out.println("Ingresa un valor valido");
+            System.out.println("Ingrese una opción válida");
         }
     }
 }

@@ -6,11 +6,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AuthorRepository extends JpaRepository<Author,Long>
 {
     @Query("SELECT a FROM Author a WHERE a.nacimiento >= :anoBusqueda ORDER BY a.nacimiento ASC ")
     List<Author> autorPorFecha(int anoBusqueda);
+
+    @Query("SELECT a FROM Author a WHERE a.autor = :autor")
+    Optional<Author> findByName(String autor);
 
 }

@@ -8,7 +8,7 @@ import java.net.http.HttpResponse;
 public class RequestAPI
 {
 
-    // Hace un llamado a un API
+
     public String getData(String url)
     {
         HttpClient client = HttpClient.newHttpClient();
